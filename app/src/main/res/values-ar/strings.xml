@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">DERA3</string>
+    <string name="app_subtitle">درعك الرقمي</string>
+    <string name="sign_in_google">تسجيل الدخول عبر Google</string>
+    <string name="loading">جاري التحميل...</string>
+    <string name="error_generic">حدث خطأ، يرجى المحاولة مرة أخرى</string>
+</resources>

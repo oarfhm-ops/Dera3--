@@ -1,0 +1,296 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email_verified == true && request.auth.token.email == 'oarfhm@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 30 &&
+             data.phoneVerified is bool &&
+             data.securityScore is int && data.securityScore >= 0 && data.securityScore <= 100 &&
+             data.completedChecks is list && data.completedChecks.size() <= 50 &&
+               (data.completedChecks.size() == 0 || data.completedChecks[0] is string) &&
+             data.emergencyContact is string && data.emergencyContact.size() <= 30 &&
+             data.honeypotLogs is list && data.honeypotLogs.size() <= 50 &&
+               (data.honeypotLogs.size() == 0 || data.honeypotLogs[0] is string) &&
+             data.passwordMasked is string && data.passwordMasked.size() <= 32 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUserBadge(data, badgeId, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.badgeId is string && data.badgeId == badgeId &&
+             data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 60 &&
+             data.titleAr is string && data.titleAr.size() >= 1 && data.titleAr.size() <= 60 &&
+             data.threshold is int &&
+             (
+               (badgeId == 'cyber_defender' && data.threshold == 50) ||
+               (badgeId == 'security_expert' && data.threshold == 100)
+             ) &&
+             data.unlockedAt is timestamp && data.unlockedAt <= request.time;
+    }
+
+    function isValidShieldConfig(data) {
+      return data.disabledShieldIds is list && data.disabledShieldIds.size() <= 12 &&
+               (data.disabledShieldIds.size() == 0 || data.disabledShieldIds[0] is string) &&
+             data.updatedBy is string && data.updatedBy.size() <= 128 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPhishingAlert(data) {
+      return data.titleAr is string && data.titleAr.size() >= 1 && data.titleAr.size() <= 120 &&
+             data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 120 &&
+             data.messageAr is string && data.messageAr.size() >= 1 && data.messageAr.size() <= 500 &&
+             data.messageEn is string && data.messageEn.size() >= 1 && data.messageEn.size() <= 500 &&
+             data.category in ['LINK_PHISHING', 'BANK_IMPERSONATION', 'FAKE_APP', 'OTP_SCAM', 'SMS_DELIVERY'] &&
+             data.severity in ['MEDIUM', 'HIGH', 'CRITICAL'] &&
+             data.indicator is string && data.indicator.size() <= 180 &&
+             data.active is bool &&
+             data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAlertAck(data, alertId, userId) {
+      return data.alertId is string && data.alertId == alertId &&
+             data.userId is string && data.userId == userId &&
+             data.read is bool &&
+             data.dismissed is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidDetectedThreat(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.shieldKey is string && data.shieldKey.size() >= 1 && data.shieldKey.size() <= 32 &&
+             data.category in ['LINK_PHISHING', 'BANK_IMPERSONATION', 'FAKE_APP', 'OTP_SCAM', 'SMS_DELIVERY'] &&
+             data.severity in ['MEDIUM', 'HIGH', 'CRITICAL'] &&
+             data.indicator is string && data.indicator.size() <= 180 &&
+             data.titleAr is string && data.titleAr.size() >= 1 && data.titleAr.size() <= 120 &&
+             data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 120 &&
+             data.messageAr is string && data.messageAr.size() >= 1 && data.messageAr.size() <= 500 &&
+             data.messageEn is string && data.messageEn.size() >= 1 && data.messageEn.size() <= 500 &&
+             data.read is bool &&
+             data.dismissed is bool &&
+             data.detectedAt is timestamp && data.detectedAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Users collection: PII strictly isolated to Owner or Admin
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'userId', 'fullName', 'email', 'phoneNumber',
+                         'phoneVerified', 'securityScore', 'completedChecks',
+                         'emergencyContact', 'honeypotLogs', 'passwordMasked',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'fullName', 'email', 'phoneNumber',
+                         'phoneVerified', 'securityScore', 'completedChecks',
+                         'emergencyContact', 'honeypotLogs', 'passwordMasked',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().securityScore == 0 &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         isAdmin() ||
+                         (
+                           isOwner(userId) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'fullName', 'phoneNumber', 'phoneVerified',
+                             'securityScore', 'completedChecks',
+                             'emergencyContact', 'honeypotLogs', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+      // Earned milestone badges subcollection (50% and 100%)
+      match /badges/{badgeId} {
+        allow get: if isValidId(userId) && isValidId(badgeId) && (isOwner(userId) || isAdmin());
+        allow list: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(badgeId) &&
+                         request.auth.uid == userId &&
+                         incoming().keys().hasAll([
+                           'badgeId', 'userId', 'threshold', 'titleEn', 'titleAr', 'unlockedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'badgeId', 'userId', 'threshold', 'titleEn', 'titleAr', 'unlockedAt'
+                         ]) &&
+                         isValidUserBadge(incoming(), badgeId, userId) &&
+                         get(/databases/$(database)/documents/users/$(userId)).data.securityScore >= incoming().threshold;
+
+        allow update, delete: if false;
+      }
+
+      // Per-user read/dismiss state for global phishing scam alerts
+      match /alert_acks/{alertId} {
+        allow get: if isValidId(userId) && isValidId(alertId) && (isOwner(userId) || isAdmin());
+        allow list: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(alertId) &&
+                         request.auth.uid == userId &&
+                         incoming().keys().hasAll(['alertId', 'userId', 'read', 'dismissed', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['alertId', 'userId', 'read', 'dismissed', 'updatedAt']) &&
+                         isValidAlertAck(incoming(), alertId, userId) &&
+                         exists(/databases/$(database)/documents/phishing_alerts/$(alertId));
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(alertId) &&
+                         request.auth.uid == userId &&
+                         isValidAlertAck(incoming(), alertId, userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().alertId == existing().alertId &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['read', 'dismissed', 'updatedAt']);
+
+        allow delete: if isValidId(userId) && isValidId(alertId) && (isOwner(userId) || isAdmin());
+      }
+
+      // User-detected phishing threats logged from shields in real time
+      match /detected_threats/{threatId} {
+        allow get: if isValidId(userId) && isValidId(threatId) && (isOwner(userId) || isAdmin());
+        allow list: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(threatId) &&
+                         request.auth.uid == userId &&
+                         incoming().keys().hasAll([
+                           'userId', 'shieldKey', 'category', 'severity', 'indicator',
+                           'titleAr', 'titleEn', 'messageAr', 'messageEn',
+                           'read', 'dismissed', 'detectedAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'shieldKey', 'category', 'severity', 'indicator',
+                           'titleAr', 'titleEn', 'messageAr', 'messageEn',
+                           'read', 'dismissed', 'detectedAt', 'updatedAt'
+                         ]) &&
+                         isValidDetectedThreat(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(threatId) &&
+                         request.auth.uid == userId &&
+                         isValidDetectedThreat(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().detectedAt == existing().detectedAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['read', 'dismissed', 'updatedAt']);
+
+        allow delete: if isValidId(userId) && isValidId(threatId) && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    // Global real-time phishing scam advisories: active alerts readable by signed-in users, managed by Admin
+    match /phishing_alerts/{alertId} {
+      allow get: if isSignedIn() && isValidId(alertId) && (existing().active == true || isAdmin());
+      allow list: if isSignedIn() && (existing().active == true || isAdmin());
+
+      allow create: if isAdmin() &&
+                       isValidId(alertId) &&
+                       incoming().createdBy == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'titleAr', 'titleEn', 'messageAr', 'messageEn',
+                         'category', 'severity', 'indicator', 'active',
+                         'createdBy', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'titleAr', 'titleEn', 'messageAr', 'messageEn',
+                         'category', 'severity', 'indicator', 'active',
+                         'createdBy', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidPhishingAlert(incoming());
+
+      allow update: if isAdmin() &&
+                       isValidId(alertId) &&
+                       isValidPhishingAlert(incoming()) &&
+                       incoming().createdBy == existing().createdBy &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'titleAr', 'titleEn', 'messageAr', 'messageEn',
+                         'category', 'severity', 'indicator', 'active', 'updatedAt'
+                       ]);
+
+      allow delete: if isAdmin() && isValidId(alertId);
+    }
+
+    // Global Shield Configuration: readable by signed-in users, writable by Admin only
+    match /app_config/{configId} {
+      allow get: if isSignedIn() && isValidId(configId);
+      allow list: if false;
+
+      allow create: if isAdmin() &&
+                       isValidId(configId) &&
+                       incoming().keys().hasAll(['disabledShieldIds', 'updatedBy', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['disabledShieldIds', 'updatedBy', 'updatedAt']) &&
+                       isValidShieldConfig(incoming());
+
+      allow update: if isAdmin() &&
+                       isValidId(configId) &&
+                       isValidShieldConfig(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'disabledShieldIds', 'updatedBy', 'updatedAt'
+                       ]);
+
+      allow delete: if false;
+    }
+
+    // Admin role marker documents: self-readable only, never client-writable
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && request.auth.uid == adminId;
+      allow list, create, update, delete: if false;
+    }
+  }
+}

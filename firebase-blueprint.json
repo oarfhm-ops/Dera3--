@@ -1,0 +1,306 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "DERA3 user profile, security score, completed shield checks, emergency contact, and honeypot logs.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID owning this profile."
+        },
+        "fullName": {
+          "type": "string",
+          "description": "User full display name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "User mobile phone number."
+        },
+        "phoneVerified": {
+          "type": "boolean",
+          "description": "Whether the user completed the OTP verification step."
+        },
+        "securityScore": {
+          "type": "integer",
+          "description": "Security score from 0 to 100."
+        },
+        "completedChecks": {
+          "type": "array",
+          "description": "Bounded list of completed shield check IDs."
+        },
+        "emergencyContact": {
+          "type": "string",
+          "description": "Family emergency phone number saved in Elderly Shield."
+        },
+        "honeypotLogs": {
+          "type": "array",
+          "description": "Bounded list of Hacker Honeypot activation and event timestamps."
+        },
+        "passwordMasked": {
+          "type": "string",
+          "description": "Masked indicator string for privacy in Admin view."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account registration timestamp via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "fullName",
+        "email",
+        "phoneNumber",
+        "phoneVerified",
+        "securityScore",
+        "completedChecks",
+        "emergencyContact",
+        "honeypotLogs",
+        "passwordMasked",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserBadge": {
+      "title": "UserBadge",
+      "description": "Security milestone badge unlocked when user reaches 50% or 100% safety score.",
+      "type": "object",
+      "properties": {
+        "badgeId": {
+          "type": "string",
+          "enum": ["cyber_defender", "security_expert"],
+          "description": "Unique badge identifier."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner UID."
+        },
+        "threshold": {
+          "type": "integer",
+          "description": "Required safety score percentage (50 or 100)."
+        },
+        "titleEn": {
+          "type": "string",
+          "description": "English badge title."
+        },
+        "titleAr": {
+          "type": "string",
+          "description": "Arabic badge title."
+        },
+        "unlockedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Unlock timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "badgeId",
+        "userId",
+        "threshold",
+        "titleEn",
+        "titleAr",
+        "unlockedAt"
+      ]
+    },
+    "ShieldConfig": {
+      "title": "ShieldConfig",
+      "description": "Global shield enable/disable configuration managed by Admin.",
+      "type": "object",
+      "properties": {
+        "disabledShieldIds": {
+          "type": "array",
+          "description": "List of shield IDs currently disabled by Admin."
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "Admin UID that updated the configuration."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last update."
+        }
+      },
+      "required": [
+        "disabledShieldIds",
+        "updatedBy",
+        "updatedAt"
+      ]
+    },
+    "AdminRole": {
+      "title": "AdminRole",
+      "description": "Server-assigned admin marker document.",
+      "type": "object",
+      "properties": {
+        "assignedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "assignedAt"
+      ]
+    },
+    "PhishingAlert": {
+      "title": "PhishingAlert",
+      "description": "Real-time common phishing scam alert broadcast via Firestore.",
+      "type": "object",
+      "properties": {
+        "titleAr": { "type": "string" },
+        "titleEn": { "type": "string" },
+        "messageAr": { "type": "string" },
+        "messageEn": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["LINK_PHISHING", "BANK_IMPERSONATION", "FAKE_APP", "OTP_SCAM", "SMS_DELIVERY"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["MEDIUM", "HIGH", "CRITICAL"]
+        },
+        "indicator": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "titleAr",
+        "titleEn",
+        "messageAr",
+        "messageEn",
+        "category",
+        "severity",
+        "indicator",
+        "active",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AlertAck": {
+      "title": "AlertAck",
+      "description": "Per-user read/dismissed acknowledgment state for a global PhishingAlert.",
+      "type": "object",
+      "properties": {
+        "alertId": { "type": "string" },
+        "userId": { "type": "string" },
+        "read": { "type": "boolean" },
+        "dismissed": { "type": "boolean" },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "alertId",
+        "userId",
+        "read",
+        "dismissed",
+        "updatedAt"
+      ]
+    },
+    "DetectedThreat": {
+      "title": "DetectedThreat",
+      "description": "User-specific phishing or scam threat detected during shield scans and synced in Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "shieldKey": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["LINK_PHISHING", "BANK_IMPERSONATION", "FAKE_APP", "OTP_SCAM", "SMS_DELIVERY"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["MEDIUM", "HIGH", "CRITICAL"]
+        },
+        "indicator": { "type": "string" },
+        "titleAr": { "type": "string" },
+        "titleEn": { "type": "string" },
+        "messageAr": { "type": "string" },
+        "messageEn": { "type": "string" },
+        "read": { "type": "boolean" },
+        "dismissed": { "type": "boolean" },
+        "detectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Detection timestamp via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update timestamp via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "shieldKey",
+        "category",
+        "severity",
+        "indicator",
+        "titleAr",
+        "titleEn",
+        "messageAr",
+        "messageEn",
+        "read",
+        "dismissed",
+        "detectedAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles and security shield progress."
+    },
+    "/users/{userId}/badges/{badgeId}": {
+      "schema": { "$ref": "#/entities/UserBadge" },
+      "description": "Earned milestone badges unlocked at 50% and 100% safety scores."
+    },
+    "/users/{userId}/alert_acks/{alertId}": {
+      "schema": { "$ref": "#/entities/AlertAck" },
+      "description": "Per-user read/dismissed status for global phishing alerts."
+    },
+    "/users/{userId}/detected_threats/{threatId}": {
+      "schema": { "$ref": "#/entities/DetectedThreat" },
+      "description": "User-detected phishing threats persisted in Firestore for real-time alerting."
+    },
+    "/phishing_alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/PhishingAlert" },
+      "description": "Global active phishing scam alerts streamed in real time to signed-in users."
+    },
+    "/app_config/{configId}": {
+      "schema": { "$ref": "#/entities/ShieldConfig" },
+      "description": "Global application configuration including disabled shield IDs at /app_config/shields."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRole" },
+      "description": "Admin authorization lookup documents."
+    }
+  }
+}

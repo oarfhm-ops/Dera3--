@@ -1,0 +1,6 @@
+{
+  "name": "DERA3",
+  "description": "DERA3 - درعك الرقمي: تطبيق أمن سيبراني عربي وإنجليزي يضم 12 درع حماية ومساعد ذكي عبر Gemini AI ولوحة تحكم لحظية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
